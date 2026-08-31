@@ -46,6 +46,21 @@ export function useLiveKitRoom({
   const roomRef = useRef<Room | null>(null);
   const audioElementsRef = useRef<Map<string, HTMLMediaElement>>(new Map());
 
+  // Store callbacks in refs to avoid re-triggering the room initialization
+  const callbacksRef = useRef({
+    onReceiveChat,
+    onReceiveReaction,
+    onReceiveHandRaise,
+  });
+
+  useEffect(() => {
+    callbacksRef.current = {
+      onReceiveChat,
+      onReceiveReaction,
+      onReceiveHandRaise,
+    };
+  }, [onReceiveChat, onReceiveReaction, onReceiveHandRaise]);
+
   // Helper to extract ParticipantInfo from a RemoteParticipant
   const mapRemoteParticipant = useCallback((p: RemoteParticipant): ParticipantInfo => {
     let videoTrack: MediaStreamTrack | null = null;
@@ -91,7 +106,7 @@ export function useLiveKitRoom({
     setRemoteParticipants(participants);
   }, [mapRemoteParticipant]);
 
-  // Connect to LiveKit Room
+  // Connect to LiveKit Room (Runs ONLY when roomId or userName changes)
   useEffect(() => {
     let isCancelled = false;
 
@@ -154,7 +169,6 @@ export function useLiveKitRoom({
         });
 
         newRoom.on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => {
-          // Clean audio elements if any
           const el = audioElementsRef.current.get(p.identity);
           if (el) {
             el.remove();
@@ -198,13 +212,15 @@ export function useLiveKitRoom({
           syncRemoteParticipants();
         });
 
-        // LiveKit data packets (for real-time chat, reactions, hand raises across all devices)
+        // LiveKit data packets
         newRoom.on(
           RoomEvent.DataReceived,
           (payload: Uint8Array, participant?: RemoteParticipant) => {
             try {
               const text = new TextDecoder().decode(payload);
               const data = JSON.parse(text);
+
+              const { onReceiveChat, onReceiveReaction, onReceiveHandRaise } = callbacksRef.current;
 
               if (data.type === "chat" && onReceiveChat) {
                 onReceiveChat(data.message);
@@ -222,12 +238,12 @@ export function useLiveKitRoom({
         // Connect room
         await newRoom.connect(wsUrl, token);
 
-        // Set metadata (host flag, display info)
+        // Set metadata
         await newRoom.localParticipant.setMetadata(
           JSON.stringify({ isHost, name: userName })
         );
 
-        // Set initial camera / mic states
+        // Initial media state
         if (webcamOn) {
           await newRoom.localParticipant.setCameraEnabled(true).catch(() => {});
         }
@@ -255,37 +271,36 @@ export function useLiveKitRoom({
     return () => {
       isCancelled = true;
       if (roomRef.current) {
-        // Detach all audio elements
         audioMap.forEach((el) => el.remove());
         audioMap.clear();
         roomRef.current.disconnect();
         roomRef.current = null;
       }
     };
-  }, [roomId, userName, isHost, micOn, webcamOn, mapRemoteParticipant, syncRemoteParticipants, onReceiveChat, onReceiveReaction, onReceiveHandRaise]);
+  }, [roomId, userName, isHost, syncRemoteParticipants]); // 🟢 Eliminados micOn, webcamOn y callbacks que re-creaban la sala
 
-  // Sync Local Camera with LiveKit
+  // Sync Local Camera
   useEffect(() => {
     if (roomRef.current?.state === "connected") {
       roomRef.current.localParticipant.setCameraEnabled(webcamOn).catch(() => {});
     }
   }, [webcamOn]);
 
-  // Sync Local Mic with LiveKit
+  // Sync Local Mic
   useEffect(() => {
     if (roomRef.current?.state === "connected") {
       roomRef.current.localParticipant.setMicrophoneEnabled(micOn).catch(() => {});
     }
   }, [micOn]);
 
-  // Sync Local Screen Share with LiveKit
+  // Sync Local Screen Share
   useEffect(() => {
     if (roomRef.current?.state === "connected") {
       roomRef.current.localParticipant.setScreenShareEnabled(isSharingScreen).catch(() => {});
     }
   }, [isSharingScreen]);
 
-  // Broadcast chat message to all peers in the room
+  // Broadcast chat message
   const sendBroadcastChat = useCallback((msg: ChatMessageItem) => {
     if (roomRef.current?.state === "connected") {
       const data = JSON.stringify({ type: "chat", message: msg });
@@ -294,7 +309,7 @@ export function useLiveKitRoom({
     }
   }, []);
 
-  // Broadcast reaction to all peers in the room
+  // Broadcast reaction
   const sendBroadcastReaction = useCallback((emoji: string) => {
     if (roomRef.current?.state === "connected") {
       const data = JSON.stringify({ type: "reaction", emoji });
@@ -303,7 +318,7 @@ export function useLiveKitRoom({
     }
   }, []);
 
-  // Broadcast hand raise to all peers in the room
+  // Broadcast hand raise
   const sendBroadcastHandRaise = useCallback((raised: boolean) => {
     if (roomRef.current?.state === "connected") {
       const data = JSON.stringify({ type: "hand_raise", raised });

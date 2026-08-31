@@ -21,6 +21,7 @@ import { useLiveKitRoom } from "@/hooks/useLiveKitRoom";
 
 interface LiveMeetingProps {
   roomId: string;
+  token?: string | null;
   isHost?: boolean;
   initialMicOn?: boolean;
   initialWebcamOn?: boolean;
@@ -28,6 +29,7 @@ interface LiveMeetingProps {
 
 export default function LiveMeeting({
   roomId,
+  token,
   isHost = true,
   initialMicOn = true,
   initialWebcamOn = true,
@@ -72,7 +74,7 @@ export default function LiveMeeting({
     setUnreadChatCount((c) => c + 1);
   }, []);
 
-  // Connect to LiveKit Room
+  // Connect to LiveKit Room using Token
   const {
     connectionState,
     remoteParticipants,
@@ -82,6 +84,7 @@ export default function LiveMeeting({
     sendBroadcastHandRaise,
   } = useLiveKitRoom({
     roomId,
+    token,
     userName,
     isHost,
     micOn,
@@ -132,7 +135,7 @@ export default function LiveMeeting({
     }
   }, [lkActiveSpeakerId]);
 
-  // Assemble full participants list (Only real connected users!)
+  // Assemble full participants list
   const localParticipant: ParticipantInfo = {
     id: "local",
     name: userName,
@@ -166,7 +169,7 @@ export default function LiveMeeting({
     isMeetingActive: true,
   });
 
-  // Reactions handler (Broadcasts to all LiveKit peers)
+  // Reactions handler
   const handleSelectReaction = (emoji: string) => {
     setMyReaction(emoji);
     sendBroadcastReaction(emoji);
@@ -206,13 +209,12 @@ export default function LiveMeeting({
           };
         }
       } catch {
-        // Cancelled or unsupported
         setIsSharingScreen(!isSharingScreen);
       }
     }
   };
 
-  // Chat message send (Broadcasts to all LiveKit peers)
+  // Chat message send
   const handleSendMessage = (text: string, files?: AttachedFile[]) => {
     const newMessage: ChatMessageItem = {
       id: crypto.randomUUID(),
@@ -237,7 +239,7 @@ export default function LiveMeeting({
       ref={meetingContainerRef}
       className="relative flex h-screen w-screen flex-col overflow-hidden bg-stage text-text-primary select-none font-sans transition-colors duration-200"
     >
-      {/* Top Bar (Zoom Header) */}
+      {/* Top Bar */}
       <TopBar
         roomId={roomId}
         topic="Quick Zoom Meeting"

@@ -17,6 +17,7 @@ export default function MeetingRoom() {
   }, [params]);
 
   const [joined, setJoined] = useState(false);
+  const [token, setToken] = useState<string | null>(null); // Estado para almacenar el JWT de LiveKit
   const [micOn, setMicOn] = useState(true);
   const [webcamOn, setWebcamOn] = useState(true);
   const isHost = useSessionStore((s) => s.role) === "host" || params.get("role") === "host";
@@ -32,20 +33,23 @@ export default function MeetingRoom() {
   }) => {
     setMicOn(m);
     setWebcamOn(w);
+    const userName = n || displayName || "Guest";
+
     if (n) {
       useUserStore.getState().setDisplayName(n);
     }
 
-    // Try fetching livekit token if server exists, otherwise continue directly
     try {
       const res = await fetch(
-        `/api/livekit/token?room=${roomId}&username=${encodeURIComponent(n || displayName || "Guest")}`
+        `/api/livekit/token?room=${roomId}&username=${encodeURIComponent(userName)}`
       );
       if (res.ok) {
-        await res.json();
+        const data = await res.json();
+        // Guarda el token recibido desde el backend
+        setToken(data.token); 
       }
-    } catch {
-      // Offline / standalone fallback
+    } catch (error) {
+      console.error("Error al obtener el token de LiveKit:", error);
     }
 
     setJoined(true);
@@ -59,6 +63,7 @@ export default function MeetingRoom() {
     <LiveMeeting
       key={roomId}
       roomId={roomId}
+      token={token} // <-- Pasa el token al componente que conecta a la videoconferencia
       isHost={isHost}
       initialMicOn={micOn}
       initialWebcamOn={webcamOn}
