@@ -1,10 +1,16 @@
+import { useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import Home from "./routes/Home";
 import Join from "./routes/Join";
 import Schedule from "./routes/Schedule";
 import MeetingRoom from "./routes/MeetingRoom";
+import { useThemeStore } from "./store/useThemeStore";
 
 export default function App() {
+  useEffect(() => {
+    useThemeStore.getState().initTheme();
+  }, []);
+
   return (
     <Routes>
       <Route path="/" element={<Home />} />

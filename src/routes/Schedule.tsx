@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Video } from "lucide-react";
 import Button from "@/components/ui/Button";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 import { useMeetingsStore } from "@/store/useMeetingsStore";
 import { useUserStore } from "@/store/useUserStore";
 
@@ -19,7 +20,7 @@ export default function Schedule() {
   const addMeeting = useMeetingsStore((s) => s.addMeeting);
   const displayName = useUserStore((s) => s.displayName);
 
-  const [topic, setTopic] = useState("My Meeting");
+  const [topic, setTopic] = useState("Mi reunión");
   const [startsAt, setStartsAt] = useState(defaultStart());
   const [duration, setDuration] = useState(30);
   const [videoOn, setVideoOn] = useState(true);
@@ -31,11 +32,11 @@ export default function Schedule() {
     const roomId = Math.random().toString(36).substring(2, 11);
     addMeeting({
       id: crypto.randomUUID(),
-      topic: topic.trim() || "My Meeting",
+      topic: topic.trim() || "Mi reunión",
       roomId,
       startsAt: new Date(startsAt).toISOString(),
       durationMinutes: duration,
-      hostName: displayName || "Host",
+      hostName: displayName || "Anfitrión",
       videoOn,
       muteOnEntry,
     });
@@ -44,20 +45,21 @@ export default function Schedule() {
 
   return (
     <div className="flex min-h-full flex-col bg-portal-bg">
-      <header className="flex h-14 items-center border-b border-portal-border bg-portal-card px-4 md:px-6">
+      <header className="flex h-14 items-center justify-between border-b border-portal-border bg-portal-card px-4 md:px-6 transition-colors duration-200">
         <Link to="/" className="flex items-center gap-2">
           <Video className="h-6 w-6 text-zoom-blue" />
           <span className="text-lg font-semibold text-text-on-light">Zoom</span>
         </Link>
+        <ThemeToggle showLabel />
       </header>
 
       <main className="mx-auto w-full max-w-xl px-4 py-8 md:px-6">
         <h1 className="mb-6 text-2xl font-semibold text-text-on-light">
-          Schedule a Meeting
+          Programar una reunión
         </h1>
 
         <div className="space-y-5 rounded-2xl bg-portal-card p-5 shadow-sm ring-1 ring-portal-border md:p-6">
-          <Field label="Topic">
+          <Field label="Tema">
             <input
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
@@ -66,7 +68,7 @@ export default function Schedule() {
           </Field>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Start">
+            <Field label="Inicio">
               <input
                 type="datetime-local"
                 value={startsAt}
@@ -74,7 +76,7 @@ export default function Schedule() {
                 className="input"
               />
             </Field>
-            <Field label="Duration (minutes)">
+            <Field label="Duración (minutos)">
               <select
                 value={duration}
                 onChange={(e) => setDuration(Number(e.target.value))}
@@ -82,7 +84,7 @@ export default function Schedule() {
               >
                 {[15, 30, 45, 60, 90, 120].map((d) => (
                   <option key={d} value={d}>
-                    {d}
+                    {d} minutos
                   </option>
                 ))}
               </select>
@@ -91,15 +93,15 @@ export default function Schedule() {
 
           <fieldset className="space-y-2">
             <legend className="mb-1 text-sm font-medium text-text-on-light">
-              Video
+              Video y Audio
             </legend>
             <Checkbox
-              label="Host video on"
+              label="Iniciar video del anfitrión automáticamente"
               checked={videoOn}
               onChange={setVideoOn}
             />
             <Checkbox
-              label="Mute participants on entry"
+              label="Silenciar a los participantes al entrar"
               checked={muteOnEntry}
               onChange={setMuteOnEntry}
             />
@@ -107,10 +109,10 @@ export default function Schedule() {
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => navigate("/")}>
-              Cancel
+              Cancelar
             </Button>
             <Button onClick={save} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Guardando…" : "Guardar"}
             </Button>
           </div>
         </div>

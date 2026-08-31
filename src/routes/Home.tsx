@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Video, Plus, Calendar, Clock, X } from "lucide-react";
+import { Video, Plus, Calendar, Clock, X, Settings } from "lucide-react";
 import ActionTile from "@/components/home/ActionTile";
+import ThemeToggle from "@/components/ui/ThemeToggle";
+import SettingsModal from "@/components/ui/SettingsModal";
 import { useMeetingsStore } from "@/store/useMeetingsStore";
 import { useSessionStore } from "@/store/useSessionStore";
 
@@ -21,6 +23,7 @@ export default function Home() {
   const meetings = useMeetingsStore((s) => s.meetings);
   const setRole = useSessionStore((s) => s.setRole);
   const [starting, setStarting] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // A toast set by the meeting route when a guest is bounced (lock / removed).
   const [toast, setToast] = useState<string | null>(
@@ -49,7 +52,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-portal-bg">
+    <div className="min-h-screen bg-portal-bg transition-colors duration-200">
       {toast && (
         <div className="fixed left-1/2 top-4 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-leave px-4 py-2.5 text-sm text-white shadow-lg">
           <span>{toast}</span>
@@ -63,13 +66,30 @@ export default function Home() {
         </div>
       )}
       {/* Top nav */}
-      <header className="flex h-14 items-center justify-between border-b border-portal-border bg-portal-card px-4 md:px-6">
+      <header className="flex h-14 items-center justify-between border-b border-portal-border bg-portal-card px-4 md:px-6 transition-colors duration-200">
         <div className="flex items-center gap-2">
           <Video className="h-6 w-6 text-zoom-blue" />
           <span className="text-lg font-semibold text-text-on-light">Zoom</span>
         </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zoom-blue text-sm font-medium text-white">
-          Z
+
+        <div className="flex items-center gap-2">
+          {/* Quick Theme Toggle Button */}
+          <ThemeToggle showLabel />
+
+          {/* Settings Button */}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-portal-border bg-portal-card hover:bg-hover text-text-secondary hover:text-text-primary transition-colors"
+            title="Configuración"
+            aria-label="Configuración"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+
+          {/* User Avatar */}
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zoom-blue text-sm font-medium text-white shadow-sm">
+            Z
+          </div>
         </div>
       </header>
 
@@ -89,19 +109,19 @@ export default function Home() {
         <div className="mx-auto grid max-w-xl grid-cols-3 gap-4">
           <ActionTile
             icon={Video}
-            label="New Meeting"
+            label="Nueva reunión"
             color="#f56b3d"
             onClick={startInstant}
           />
           <ActionTile
             icon={Plus}
-            label="Join"
+            label="Entrar"
             color="#2d8cff"
             onClick={() => navigate("/join")}
           />
           <ActionTile
             icon={Calendar}
-            label="Schedule"
+            label="Agendar"
             color="#2d8cff"
             onClick={() => navigate("/schedule")}
           />
@@ -109,18 +129,18 @@ export default function Home() {
 
         {starting && (
           <p className="mt-4 text-center text-sm text-text-secondary">
-            Creating meeting…
+            Iniciando reunión…
           </p>
         )}
 
         {/* Upcoming meetings */}
         <section className="mx-auto mt-12 max-w-2xl">
           <h2 className="mb-3 text-sm font-semibold text-text-on-light">
-            Upcoming meetings
+            Próximas reuniones
           </h2>
           {meetings.length === 0 ? (
             <div className="rounded-xl border border-dashed border-portal-border bg-portal-card p-8 text-center text-sm text-text-secondary">
-              No upcoming meetings. Click <span className="font-medium">Schedule</span> to plan one.
+              No hay reuniones programadas. Haz clic en <span className="font-medium">Agendar</span> para programar una.
             </div>
           ) : (
             <ul className="space-y-2">
@@ -151,7 +171,7 @@ export default function Home() {
                       }}
                       className="rounded-md bg-zoom-blue px-4 py-1.5 text-sm font-medium text-white hover:bg-zoom-blue-hover"
                     >
-                      Start
+                      Iniciar
                     </button>
                   </li>
                 ))}
@@ -159,6 +179,16 @@ export default function Home() {
           )}
         </section>
       </main>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        onTestPip={async () => {
+          const roomId = "test-pip";
+          navigate(`/meeting/${roomId}`);
+        }}
+      />
     </div>
   );
 }

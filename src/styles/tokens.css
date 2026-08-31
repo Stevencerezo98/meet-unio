@@ -1,58 +1,123 @@
 @import "tailwindcss";
 
-/*
-  Zoom web-client design tokens.
-  Values are close approximations of the real client, to be refined per-surface
-  against Figma / the live app during the pixel-perfect passes.
-*/
-@theme {
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Theme CSS custom variables */
+:root {
   /* Brand */
   --color-zoom-blue: #2d8cff;
   --color-zoom-blue-hover: #2681f2;
   --color-zoom-blue-pressed: #2178e0;
 
-  /* Meeting stage / surfaces (dark) — exact Figma dark-theme values */
-  --color-stage: #0a0a0a;
-  --color-stage-2: #0f0f0f;
-  --color-tile: #242424;
-  --color-tile-2: #2b2b2b;
-  --color-controlbar: #242424;
-  --color-panel: #242424;
-  --color-panel-2: #2b2b2b;
-  --color-panel-border: #3a3a3a;
-  --color-hover: #3a3a3a;
+  /* Default Light Theme surfaces */
+  --bg-app: #f4f5f8;
+  --bg-stage: #eef1f6;
+  --bg-stage-2: #e2e8f0;
+  --bg-tile: #ffffff;
+  --bg-tile-2: #f8fafc;
+  --bg-controlbar: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-panel-2: #f8fafc;
+  --border-panel: #e2e8f0;
+  --border-controlbar: #e5e7eb;
+  --border-tile: #e2e8f0;
+  --bg-hover: #f1f5f9;
+  --bg-popover: #ffffff;
 
   /* Status */
   --color-leave: #cc3b33;
   --color-leave-hover: #d7524b;
-  --color-share-green: #63c454;
-  --color-active-speaker: #d7d966;
-  --color-raise-hand: #f5c518;
+  --color-share-green: #22c55e;
+  --color-active-speaker: #eab308;
+  --color-raise-hand: #f59e0b;
 
   /* Text */
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #a6a6a6;
-  --color-text-muted: #8c8c8c;
-  --color-text-on-light: #232333;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --text-on-light: #0f172a;
 
-  /* Light portal surfaces (home/schedule) */
-  --color-portal-bg: #f7f9fa;
+  /* Portal surfaces (Home, Schedule, Join) */
+  --color-portal-bg: #f4f5f8;
   --color-portal-card: #ffffff;
-  --color-portal-border: #e5e7eb;
+  --color-portal-border: #e2e8f0;
 
   /* Radii */
-  --radius-tile: 8px;
+  --radius-tile: 10px;
   --radius-panel: 12px;
   --radius-control: 8px;
-
-  /* Fonts */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
 
   /* Layout */
   --spacing-panel-width: 340px;
   --spacing-controlbar-height: 80px;
   --spacing-topbar-height: 44px;
+}
+
+:root[data-theme="dark"],
+.dark {
+  /* Dark Theme surfaces (Zoom authentic dark palette) */
+  --bg-app: #0a0a0a;
+  --bg-stage: #0a0a0a;
+  --bg-stage-2: #0f0f0f;
+  --bg-tile: #242424;
+  --bg-tile-2: #2b2b2b;
+  --bg-controlbar: #242424;
+  --bg-panel: #242424;
+  --bg-panel-2: #2b2b2b;
+  --border-panel: #3a3a3a;
+  --border-controlbar: #3a3a3a;
+  --border-tile: rgba(255, 255, 255, 0.08);
+  --bg-hover: #3a3a3a;
+  --bg-popover: #242424;
+
+  --color-share-green: #63c454;
+  --color-active-speaker: #d7d966;
+  --color-raise-hand: #f5c518;
+
+  /* Dark Text */
+  --text-primary: #ffffff;
+  --text-secondary: #a6a6a6;
+  --text-muted: #8c8c8c;
+  --text-on-light: #f8fafc;
+
+  /* Portal in dark */
+  --color-portal-bg: #121212;
+  --color-portal-card: #1e1e1e;
+  --color-portal-border: #2e2e2e;
+}
+
+@theme {
+  --color-zoom-blue: var(--color-zoom-blue);
+  --color-zoom-blue-hover: var(--color-zoom-blue-hover);
+  --color-zoom-blue-pressed: var(--color-zoom-blue-pressed);
+
+  --color-stage: var(--bg-stage);
+  --color-stage-2: var(--bg-stage-2);
+  --color-tile: var(--bg-tile);
+  --color-tile-2: var(--bg-tile-2);
+  --color-controlbar: var(--bg-controlbar);
+  --color-panel: var(--bg-panel);
+  --color-panel-2: var(--bg-panel-2);
+  --color-panel-border: var(--border-panel);
+  --color-hover: var(--bg-hover);
+
+  --color-leave: var(--color-leave);
+  --color-leave-hover: var(--color-leave-hover);
+  --color-share-green: var(--color-share-green);
+  --color-active-speaker: var(--color-active-speaker);
+  --color-raise-hand: var(--color-raise-hand);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-on-light: var(--text-on-light);
+
+  --color-portal-bg: var(--color-portal-bg);
+  --color-portal-card: var(--color-portal-card);
+  --color-portal-border: var(--color-portal-border);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 }
 
 html,
@@ -66,4 +131,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-portal-bg);
+  color: var(--color-text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }

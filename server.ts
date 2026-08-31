@@ -7,7 +7,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.get("/api/livekit/token", (req, res) => {
+  app.get("/api/livekit/token", async (req, res) => {
     const room = req.query.room as string;
     const username = req.query.username as string;
 
@@ -18,19 +18,41 @@ async function startServer() {
 
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
+    const wsUrl = process.env.LIVEKIT_URL || process.env.VITE_LIVEKIT_URL || process.env.LIVEKIT_WS_URL || "";
 
     if (!apiKey || !apiSecret) {
-      res.status(500).json({ error: "Server is not configured with LIVEKIT_API_KEY and LIVEKIT_API_SECRET." });
+      res.status(500).json({
+        error: "Server is not configured with LIVEKIT_API_KEY and LIVEKIT_API_SECRET.",
+        configured: false,
+      });
       return;
     }
 
-    const at = new AccessToken(apiKey, apiSecret, {
-      identity: username,
-      name: username,
-    });
-    at.addGrant({ roomJoin: true, room: room });
+    try {
+      const at = new AccessToken(apiKey, apiSecret, {
+        identity: username,
+        name: username,
+      });
+      at.addGrant({
+        roomJoin: true,
+        room: room,
+        canPublish: true,
+        canSubscribe: true,
+        canPublishData: true,
+      });
 
-    res.json({ token: at.toJwt() });
+      const token = await at.toJwt();
+      res.json({ token, wsUrl, configured: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error generating token";
+      res.status(500).json({ error: message, configured: false });
+    }
+  });
+
+  app.get("/api/livekit/config", (req, res) => {
+    const configured = Boolean(process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
+    const wsUrl = process.env.LIVEKIT_URL || process.env.VITE_LIVEKIT_URL || process.env.LIVEKIT_WS_URL || "";
+    res.json({ configured, wsUrl });
   });
 
   if (process.env.NODE_ENV !== "production") {
