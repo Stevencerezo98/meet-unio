@@ -1,6 +1,11 @@
 {
-  "name": "Zoom Clone",
+  "name": "UNIO MEET",
   "description": "Video conferencing and meeting web application with video, audio, screen share, and chat capabilities.",
-  "requestFramePermissions": ["camera", "microphone"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

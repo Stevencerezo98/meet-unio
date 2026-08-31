@@ -27,7 +27,7 @@ export default function Join() {
       <header className="flex h-14 items-center justify-between border-b border-portal-border bg-portal-card px-4 md:px-6 transition-colors duration-200">
         <Link to="/" className="flex items-center gap-2">
           <Video className="h-6 w-6 text-zoom-blue" />
-          <span className="text-lg font-semibold text-text-on-light">Zoom</span>
+          <span className="text-lg font-semibold text-text-on-light">Unio</span>
         </Link>
         <ThemeToggle showLabel />
       </header>

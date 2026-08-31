@@ -64,7 +64,7 @@ export default function PreJoin({ onJoin, initialName, roomId }: PreJoinProps) {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zoom-blue text-white shadow-md">
           <Video className="h-5 w-5 fill-white" />
         </div>
-        <span className="text-xl font-bold tracking-tight text-white">zoom</span>
+        <span className="text-xl font-bold tracking-tight text-white">Unio</span>
       </div>
 
       {/* Main card */}

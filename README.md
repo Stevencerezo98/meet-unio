@@ -1,6 +1,6 @@
-# Zoom Clone - Open-Source Zoom Web Client
+# UNIO MEET - Open-Source Zoom Web Client
 
-A free, open-source **Zoom clone** built with React, TypeScript, and [VideoSDK](https://dub.sh/X5Fn46e).
+A free, open-source **UNIO MEET** built with React, TypeScript, and [VideoSDK](https://dub.sh/X5Fn46e).
 It recreates the Zoom web-client experience - real-time HD video and audio, screen share, chat, reactions, polls, cloud recording, and host security controls - with a pixel-accurate UI matched to Figma references.
 
 <div align="center">
@@ -27,7 +27,7 @@ If you are looking for an **open source Zoom** alternative to learn from, self-h
 
 ## Why this project
 
-Most "build a Zoom clone" tutorials stop at two people on a call.
+Most "build a UNIO MEET" tutorials stop at two people on a call.
 This one goes all the way to the parts that are actually hard: host-authoritative security (real lock, waiting room, and permission enforcement at the media server), late-joiner state sync, cloud recording, and Picture-in-Picture.
 
 - **Real WebRTC video conferencing** over VideoSDK's SFU, not a toy peer-to-peer example.
@@ -234,7 +234,7 @@ Both are ignored while you are typing in an input.
 
 ## FAQ
 
-**Is this a real, working Zoom clone?**
+**Is this a real, working UNIO MEET?**
 Yes. It runs genuine multi-participant WebRTC video meetings over VideoSDK, with screen share, recording, and host controls enforced at the media server.
 
 **Do I need a VideoSDK account?**
