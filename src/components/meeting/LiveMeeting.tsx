@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useActiveSpeakers } from '@livekit/components-react';
 import { useNavigate } from "react-router-dom";
 import {
   useRemoteParticipants,
