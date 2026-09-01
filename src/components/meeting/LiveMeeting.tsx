@@ -1,5 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  useRemoteParticipants,
+  useLocalParticipant,
+  useRoomContext,
+  useConnectionState,
+  useSpeakers,
+} from "@livekit/components-react";
+import { Track, ConnectionState, DataPacket_Kind } from "livekit-client";
+
 import TopBar from "./TopBar";
 import ControlBar from "./ControlBar";
 import VideoGrid from "./VideoGrid";
@@ -17,11 +26,9 @@ import type { ParticipantInfo } from "./ParticipantTile";
 import { usePollsStore } from "@/store/usePollsStore";
 import { useUserStore } from "@/store/useUserStore";
 import { usePictureInPicture } from "@/hooks/usePictureInPicture";
-import { useLiveKitRoom } from "@/hooks/useLiveKitRoom";
 
 interface LiveMeetingProps {
   roomId: string;
-  token?: string | null;
   isHost?: boolean;
   initialMicOn?: boolean;
   initialWebcamOn?: boolean;
@@ -29,13 +36,29 @@ interface LiveMeetingProps {
 
 export default function LiveMeeting({
   roomId,
-  token,
   isHost = true,
   initialMicOn = true,
   initialWebcamOn = true,
 }: LiveMeetingProps) {
   const navigate = useNavigate();
   const userName = useUserStore((s) => s.displayName) || "You";
+
+  // Context & Hooks Oficiales de LiveKit
+  const room = useRoomContext();
+  const rawConnectionState = useConnectionState();
+  const remoteParticipantsLK = useRemoteParticipants();
+  const { localParticipant: localLK } = useLocalParticipant();
+  const activeSpeakersLK = useActiveSpeakers();
+
+  // Mapear el estado de conexión para tu TopBar
+  const connectionState: "idle" | "connecting" | "connected" | "error" =
+    rawConnectionState === ConnectionState.Connected
+      ? "connected"
+      : rawConnectionState === ConnectionState.Connecting
+      ? "connecting"
+      : rawConnectionState === ConnectionState.Disconnected
+      ? "idle"
+      : "error";
 
   // Meeting states
   const [micOn, setMicOn] = useState(initialMicOn);
@@ -62,80 +85,107 @@ export default function LiveMeeting({
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Real Chat data (Clean, no mock messages)
+  // Real Chat data
   const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
 
-  const handleReceiveChat = useCallback((msg: ChatMessageItem) => {
-    setChatMessages((prev) => {
-      if (prev.some((m) => m.id === msg.id)) return prev;
-      return [...prev, { ...msg, isLocal: false }];
-    });
-    setUnreadChatCount((c) => c + 1);
-  }, []);
-
-  // Connect to LiveKit Room using Token
-  const {
-    connectionState,
-    remoteParticipants,
-    activeSpeakerId: lkActiveSpeakerId,
-    sendBroadcastChat,
-    sendBroadcastReaction,
-    sendBroadcastHandRaise,
-  } = useLiveKitRoom({
-    roomId,
-    token,
-    userName,
-    isHost,
-    micOn,
-    webcamOn,
-    isSharingScreen,
-    onReceiveChat: handleReceiveChat,
-  });
-
-  const polls = usePollsStore((s) => s.polls);
-  const results = usePollsStore((s) => s.results);
-  const myVotes = usePollsStore((s) => s.myVotes);
-  const createPoll = usePollsStore((s) => s.createPoll);
-  const launchPoll = usePollsStore((s) => s.launchPoll);
-  const vote = usePollsStore((s) => s.vote);
-
-  // Camera stream track
-  const [localVideoTrack, setLocalVideoTrack] = useState<MediaStreamTrack | null>(null);
   const meetingContainerRef = useRef<HTMLDivElement>(null);
 
-  // Initialize camera track if webcamOn
+  // Sincronización de Micrófono local con LiveKit
   useEffect(() => {
-    let activeStream: MediaStream | null = null;
-
-    if (webcamOn) {
-      navigator.mediaDevices
-        ?.getUserMedia({ video: true, audio: false })
-        .then((s) => {
-          activeStream = s;
-          const track = s.getVideoTracks()[0];
-          setLocalVideoTrack(track || null);
-        })
-        .catch(() => {
-          setLocalVideoTrack(null);
-        });
-    } else {
-      setLocalVideoTrack(null);
+    if (localLK) {
+      localLK.setMicrophoneEnabled(micOn).catch(() => {});
     }
+  }, [micOn, localLK]);
 
-    return () => {
-      activeStream?.getTracks().forEach((t) => t.stop());
+  // Sincronización de Cámara local con LiveKit
+  useEffect(() => {
+    if (localLK) {
+      localLK.setCameraEnabled(webcamOn).catch(() => {});
+    }
+  }, [webcamOn, localLK]);
+
+  // Escuchar mensajes de Chat o datos DataReceived enviados vía LiveKit
+  useEffect(() => {
+    if (!room) return;
+
+    const handleDataReceived = (payload: Uint8Array) => {
+      try {
+        const text = new TextDecoder().decode(payload);
+        const data = JSON.parse(text);
+
+        if (data.type === "chat" && data.message) {
+          setChatMessages((prev) => {
+            if (prev.some((m) => m.id === data.message.id)) return prev;
+            return [...prev, { ...data.message, isLocal: false }];
+          });
+          setUnreadChatCount((c) => c + 1);
+        }
+      } catch {
+        // Ignorar paquetes que no sean JSON
+      }
     };
-  }, [webcamOn]);
 
-  // Sync active speaker with LiveKit or local
-  useEffect(() => {
-    if (lkActiveSpeakerId) {
-      setActiveSpeakerId(lkActiveSpeakerId);
+    room.on("dataReceived", handleDataReceived);
+    return () => {
+      room.off("dataReceived", handleDataReceived);
+    };
+  }, [room]);
+
+ // Obtiene la lista de altavoces/hablantes activos en tiempo real
+useEffect(() => {
+  if (activeSpeakersLK.length > 0) {
+    const topSpeaker = activeSpeakersLK[0];
+    setActiveSpeakerId(
+      topSpeaker.identity === localLK?.identity ? "local" : topSpeaker.identity
+    );
+  }
+}, [activeSpeakersLK, localLK?.identity]);
+
+  // Transmitir datos por el canal seguro de LiveKit
+  const broadcastData = useCallback(
+    (dataObj: object) => {
+      if (room?.state === ConnectionState.Connected) {
+        const payload = new TextEncoder().encode(JSON.stringify(dataObj));
+        localLK.publishData(payload, { reliable: true });
+      }
+    },
+    [room, localLK]
+  );
+
+  // Mapear participantes remotos al formato ParticipantInfo de tu app
+  const remoteParticipants: ParticipantInfo[] = remoteParticipantsLK.map((p) => {
+    const camPub =
+      p.getTrackPublication(Track.Source.Camera) ||
+      Array.from(p.videoTrackPublications.values()).find((pub) => pub.track);
+
+    let meta: Record<string, unknown> = {};
+    try {
+      if (p.metadata) meta = JSON.parse(p.metadata);
+    } catch {
+      // ignore
     }
-  }, [lkActiveSpeakerId]);
 
-  // Assemble full participants list
+    return {
+      id: p.identity,
+      name: p.name || p.identity,
+      isLocal: false,
+      isHost: Boolean(meta.isHost),
+      micOn: p.isMicrophoneEnabled,
+      webcamOn: p.isCameraEnabled,
+      handRaised: Boolean(meta.handRaised),
+      reaction: typeof meta.reaction === "string" ? meta.reaction : undefined,
+      isSpeaking: p.isSpeaking,
+      color: typeof meta.color === "string" ? meta.color : "#3b6ea5",
+      videoTrack: camPub?.track?.mediaStreamTrack || null,
+    };
+  });
+
+  // Track de cámara local nativo desde LiveKit
+  const localCamPub = localLK.getTrackPublication(Track.Source.Camera);
+  const localVideoTrack = localCamPub?.track?.mediaStreamTrack || null;
+
+  // Participante Local en formato ParticipantInfo
   const localParticipant: ParticipantInfo = {
     id: "local",
     name: userName,
@@ -145,34 +195,30 @@ export default function LiveMeeting({
     webcamOn: webcamOn,
     handRaised: handRaised,
     reaction: myReaction,
-    isSpeaking: (lkActiveSpeakerId === "local" || activeSpeakerId === "local") && micOn,
+    isSpeaking: activeSpeakerId === "local" && micOn,
     color: "#2d8cff",
     videoTrack: localVideoTrack,
   };
 
   const allParticipants = [localParticipant, ...remoteParticipants];
 
-  // Active speaker for PiP
+  // Active speaker para PiP
   const activeSpeaker =
     allParticipants.find((p) => p.id === (pinnedId || activeSpeakerId)) || localParticipant;
 
   // Picture-in-Picture Hook
-  const {
-    isPipActive,
-    inAppPipOpen,
-    setInAppPipOpen,
-    togglePip,
-  } = usePictureInPicture({
-    activeSpeaker,
-    allParticipants,
-    roomId,
-    isMeetingActive: true,
-  });
+  const { isPipActive, inAppPipOpen, setInAppPipOpen, togglePip } =
+    usePictureInPicture({
+      activeSpeaker,
+      allParticipants,
+      roomId,
+      isMeetingActive: true,
+    });
 
-  // Reactions handler
+  // Reacciones
   const handleSelectReaction = (emoji: string) => {
     setMyReaction(emoji);
-    sendBroadcastReaction(emoji);
+    broadcastData({ type: "reaction", emoji });
     setTimeout(() => {
       setMyReaction(undefined);
     }, 4000);
@@ -181,10 +227,10 @@ export default function LiveMeeting({
   const handleToggleHandRaise = () => {
     const next = !handRaised;
     setHandRaised(next);
-    sendBroadcastHandRaise(next);
+    broadcastData({ type: "hand_raise", raised: next });
   };
 
-  // Fullscreen toggle
+  // Pantalla completa
   const handleToggleFullscreen = () => {
     if (!document.fullscreenElement) {
       meetingContainerRef.current?.requestFullscreen?.().catch(() => {});
@@ -195,44 +241,45 @@ export default function LiveMeeting({
     }
   };
 
-  // Screen sharing toggle
+  // Compartir pantalla con LiveKit Native SDK
   const handleToggleShareScreen = async () => {
-    if (isSharingScreen) {
+    try {
+      const nextState = !isSharingScreen;
+      await localLK.setScreenShareEnabled(nextState);
+      setIsSharingScreen(nextState);
+    } catch (err) {
+      console.error("Error al compartir pantalla:", err);
       setIsSharingScreen(false);
-    } else {
-      try {
-        const stream = await navigator.mediaDevices?.getDisplayMedia?.({ video: true });
-        if (stream) {
-          setIsSharingScreen(true);
-          stream.getVideoTracks()[0].onended = () => {
-            setIsSharingScreen(false);
-          };
-        }
-      } catch {
-        setIsSharingScreen(!isSharingScreen);
-      }
     }
   };
 
-  // Chat message send
+  // Envío de mensajes por Chat
   const handleSendMessage = (text: string, files?: AttachedFile[]) => {
     const newMessage: ChatMessageItem = {
       id: crypto.randomUUID(),
-      senderName: `${userName}`,
-      senderId: "local",
+      senderName: userName,
+      senderId: localLK.identity || "local",
       message: text,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       isLocal: true,
       files,
     };
     setChatMessages((prev) => [...prev, newMessage]);
-    sendBroadcastChat(newMessage);
+    broadcastData({ type: "chat", message: newMessage });
   };
 
   const handleOpenChat = () => {
     setShowChat(true);
     setUnreadChatCount(0);
   };
+
+  // Zustand Polls
+  const polls = usePollsStore((s) => s.polls);
+  const results = usePollsStore((s) => s.results);
+  const myVotes = usePollsStore((s) => s.myVotes);
+  const createPoll = usePollsStore((s) => s.createPoll);
+  const launchPoll = usePollsStore((s) => s.launchPoll);
+  const vote = usePollsStore((s) => s.vote);
 
   return (
     <div
@@ -263,7 +310,7 @@ export default function LiveMeeting({
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xl">
               <span>You are sharing your screen</span>
               <button
-                onClick={() => setIsSharingScreen(false)}
+                onClick={handleToggleShareScreen}
                 className="rounded bg-black/30 px-2 py-0.5 text-[11px] hover:bg-black/50"
               >
                 Stop Share
@@ -352,7 +399,10 @@ export default function LiveMeeting({
         onOpenPolling={() => setShowPolling(true)}
         onOpenBreakoutRooms={() => setShowBreakout(true)}
         onOpenWhiteboard={() => setShowWhiteboard(true)}
-        onLeaveMeeting={() => navigate("/")}
+        onLeaveMeeting={() => {
+          room?.disconnect();
+          navigate("/");
+        }}
         isPipActive={isPipActive}
         onTogglePip={togglePip}
         onOpenSettings={() => setShowSettings(true)}
@@ -375,10 +425,7 @@ export default function LiveMeeting({
       />
 
       {/* Settings Modal */}
-      <SettingsModal
-        open={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
 
       {/* Invite Modal */}
       <InviteModal

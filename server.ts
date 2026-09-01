@@ -1,3 +1,4 @@
+import "dotenv/config"; // 👈 Carga automática del archivo .env
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -5,7 +6,7 @@ import { AccessToken } from "livekit-server-sdk";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.get("/api/livekit/token", async (req, res) => {
     const room = req.query.room as string;
@@ -18,7 +19,11 @@ async function startServer() {
 
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
-    const wsUrl = process.env.LIVEKIT_URL || process.env.VITE_LIVEKIT_URL || process.env.LIVEKIT_WS_URL || "";
+    const wsUrl =
+      process.env.LIVEKIT_URL ||
+      process.env.VITE_LIVEKIT_URL ||
+      process.env.LIVEKIT_WS_URL ||
+      "";
 
     if (!apiKey || !apiSecret) {
       res.status(500).json({
@@ -29,10 +34,13 @@ async function startServer() {
     }
 
     try {
+      // 👈 AccessToken con TTL de 6 horas
       const at = new AccessToken(apiKey, apiSecret, {
         identity: username,
         name: username,
+        ttl: "6h",
       });
+
       at.addGrant({
         roomJoin: true,
         room: room,
@@ -49,9 +57,15 @@ async function startServer() {
     }
   });
 
-  app.get("/api/livekit/config", (req, res) => {
-    const configured = Boolean(process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
-    const wsUrl = process.env.LIVEKIT_URL || process.env.VITE_LIVEKIT_URL || process.env.LIVEKIT_WS_URL || "";
+  app.get("/api/livekit/config", (_req, res) => {
+    const configured = Boolean(
+      process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET
+    );
+    const wsUrl =
+      process.env.LIVEKIT_URL ||
+      process.env.VITE_LIVEKIT_URL ||
+      process.env.LIVEKIT_WS_URL ||
+      "";
     res.json({ configured, wsUrl });
   });
 
@@ -64,13 +78,13 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*all", (req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(Number(PORT), "0.0.0.0", () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
   });
 }
 

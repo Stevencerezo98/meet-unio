@@ -1,5 +1,7 @@
 import { useRef, useEffect } from "react";
 import { MicOff, Mic, Pin } from "lucide-react";
+import { VideoTrack } from "@livekit/components-react";
+import { Track, Participant } from "livekit-client";
 import Avatar from "@/components/ui/Avatar";
 import { cn } from "@/lib/cn";
 
@@ -15,6 +17,7 @@ export interface ParticipantInfo {
   isSpeaking?: boolean;
   color?: string;
   videoTrack?: MediaStreamTrack | null;
+  participantLK?: Participant; // Instancia nativa de LiveKit
 }
 
 interface ParticipantTileProps {
@@ -32,13 +35,19 @@ export default function ParticipantTile({
 }: ParticipantTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Fallback de VideoTrack usando MediaStream (por si no se pasa participantLK)
   useEffect(() => {
-    if (participant.webcamOn && participant.videoTrack && videoRef.current) {
+    if (
+      !participant.participantLK &&
+      participant.webcamOn &&
+      participant.videoTrack &&
+      videoRef.current
+    ) {
       const stream = new MediaStream([participant.videoTrack]);
       videoRef.current.srcObject = stream;
       videoRef.current.play().catch(() => {});
     }
-  }, [participant.webcamOn, participant.videoTrack]);
+  }, [participant.webcamOn, participant.videoTrack, participant.participantLK]);
 
   const avatarColor = participant.color || "#3b6ea5";
 
@@ -55,7 +64,15 @@ export default function ParticipantTile({
       {/* Video stream or Avatar fallback */}
       {participant.webcamOn ? (
         <div className="relative h-full w-full bg-black">
-          {participant.videoTrack ? (
+          {/* Si tenemos el objeto de LiveKit, usamos VideoTrack oficial de la librería */}
+          {participant.participantLK ? (
+            <VideoTrack
+              participant={participant.participantLK}
+              source={Track.Source.Camera}
+              className="h-full w-full object-cover"
+            />
+          ) : participant.videoTrack ? (
+            /* Fallback con elemento HTMLVideo tradicional */
             <video
               ref={videoRef}
               autoPlay
@@ -64,7 +81,6 @@ export default function ParticipantTile({
               className="h-full w-full object-cover"
             />
           ) : (
-            // Simulation video representation
             <div className="h-full w-full bg-gradient-to-tr from-slate-900 to-slate-800 flex items-center justify-center">
               <Avatar
                 name={participant.name}
@@ -88,14 +104,14 @@ export default function ParticipantTile({
 
       {/* Floating Reaction Overlay (Top Right) */}
       {participant.reaction && (
-        <div className="absolute top-3 right-3 flex items-center justify-center h-10 w-10 rounded-full bg-black/70 backdrop-blur-md text-2xl shadow-lg ring-1 ring-white/20 animate-bounce">
+        <div className="absolute top-3 right-3 flex items-center justify-center h-10 w-10 rounded-full bg-black/70 backdrop-blur-md text-2xl shadow-lg ring-1 ring-white/20 animate-bounce z-10">
           {participant.reaction}
         </div>
       )}
 
       {/* Raised Hand Badge (Top Left) */}
       {participant.handRaised && (
-        <div className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-amber-500/90 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-black shadow-lg">
+        <div className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-amber-500/90 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-black shadow-lg z-10">
           <span>✋</span>
           <span className="hidden sm:inline">Hand Raised</span>
         </div>
@@ -105,7 +121,7 @@ export default function ParticipantTile({
       {onTogglePin && (
         <button
           onClick={() => onTogglePin(participant.id)}
-          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 hover:bg-black/80 text-white transition-opacity"
+          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 hover:bg-black/80 text-white transition-opacity z-10"
           title={isPinned ? "Unpin video" : "Pin video"}
         >
           <Pin className={cn("h-3.5 w-3.5", isPinned && "text-zoom-blue fill-zoom-blue")} />
