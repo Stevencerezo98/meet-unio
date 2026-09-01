@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useActiveSpeakers } from '@livekit/components-react';
 import { useNavigate } from "react-router-dom";
 import {
   useRemoteParticipants,
   useLocalParticipant,
   useRoomContext,
   useConnectionState,
-  useSpeakers,
+  useTracks,
 } from "@livekit/components-react";
-import { Track, ConnectionState, DataPacket_Kind } from "livekit-client";
+import { Track, ConnectionState } from "livekit-client";
 
 import TopBar from "./TopBar";
 import ControlBar from "./ControlBar";
@@ -49,7 +48,8 @@ export default function LiveMeeting({
   const rawConnectionState = useConnectionState();
   const remoteParticipantsLK = useRemoteParticipants();
   const { localParticipant: localLK } = useLocalParticipant();
-  const activeSpeakersLK = useActiveSpeakers();
+  const audioTracks = useTracks([Track.Source.Microphone], { onlySubscribed: true });
+  const activeSpeakers = audioTracks.filter((track) => track.publication?.isSpeaking);
 
   // Mapear el estado de conexión para tu TopBar
   const connectionState: "idle" | "connecting" | "connected" | "error" =
@@ -133,20 +133,24 @@ export default function LiveMeeting({
     };
   }, [room]);
 
- // Obtiene la lista de altavoces/hablantes activos en tiempo real
-useEffect(() => {
-  if (activeSpeakersLK.length > 0) {
-    const topSpeaker = activeSpeakersLK[0];
-    setActiveSpeakerId(
-      topSpeaker.identity === localLK?.identity ? "local" : topSpeaker.identity
-    );
-  }
-}, [activeSpeakersLK, localLK?.identity]);
+  // Obtiene la lista de altavoces/hablantes activos en tiempo real
+  useEffect(() => {
+    if (activeSpeakers.length > 0) {
+      const topSpeaker = activeSpeakers[0];
+      const speakerIdentity = topSpeaker.participant?.identity || topSpeaker.participant?.name;
+
+      if (speakerIdentity) {
+        setActiveSpeakerId(
+          speakerIdentity === localLK?.identity ? "local" : speakerIdentity
+        );
+      }
+    }
+  }, [activeSpeakers, localLK?.identity]);
 
   // Transmitir datos por el canal seguro de LiveKit
   const broadcastData = useCallback(
     (dataObj: object) => {
-      if (room?.state === ConnectionState.Connected) {
+      if (room?.state === ConnectionState.Connected && localLK) {
         const payload = new TextEncoder().encode(JSON.stringify(dataObj));
         localLK.publishData(payload, { reliable: true });
       }
@@ -183,7 +187,7 @@ useEffect(() => {
   });
 
   // Track de cámara local nativo desde LiveKit
-  const localCamPub = localLK.getTrackPublication(Track.Source.Camera);
+  const localCamPub = localLK?.getTrackPublication(Track.Source.Camera);
   const localVideoTrack = localCamPub?.track?.mediaStreamTrack || null;
 
   // Participante Local en formato ParticipantInfo
@@ -244,6 +248,7 @@ useEffect(() => {
 
   // Compartir pantalla con LiveKit Native SDK
   const handleToggleShareScreen = async () => {
+    if (!localLK) return;
     try {
       const nextState = !isSharingScreen;
       await localLK.setScreenShareEnabled(nextState);
@@ -259,7 +264,7 @@ useEffect(() => {
     const newMessage: ChatMessageItem = {
       id: crypto.randomUUID(),
       senderName: userName,
-      senderId: localLK.identity || "local",
+      senderId: localLK?.identity || "local",
       message: text,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       isLocal: true,
